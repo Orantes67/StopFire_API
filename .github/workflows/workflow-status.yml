@@ -1,0 +1,25 @@
+name: Workflow Status Notifications
+
+on:
+  workflow_run:
+    workflows: ["Deploy to AWS EC2", "CI/CD Pipeline"]
+    types: [completed]
+
+jobs:
+  notify-workflow-status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Notify Discord about Workflow Status
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_TEST_WEBHOOK }}
+        with:
+          args: |
+            ${{ github.event.workflow_run.conclusion == 'success' && '✅ **WORKFLOW SUCCEEDED**' || '❌ **WORKFLOW FAILED**' }}
+            **Repository:** ${{ github.repository }}
+            **Workflow:** ${{ github.event.workflow_run.name }}
+            **Branch:** ${{ github.event.workflow_run.head_branch }}
+            **Link:** ${{ github.event.workflow_run.html_url }}

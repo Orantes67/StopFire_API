@@ -1,0 +1,24 @@
+name: Discord Notifications
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, closed]
+
+jobs:
+  notify-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Notify Discord about Pull Request
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_DEV_WEBHOOK }}
+        with:
+          args: |
+            ${{ github.event.pull_request.merged == true && '🎉 **PULL REQUEST MERGED**' || github.event.action == 'opened' && '📝 **NEW PULL REQUEST**' || github.event.action == 'reopened' && '🔄 **PULL REQUEST REOPENED**' || github.event.action == 'ready_for_review' && '👀 **PULL REQUEST READY FOR REVIEW**' || '❌ **PULL REQUEST CLOSED**' }}
+            **Repository:** ${{ github.repository }}
+            **PR #${{ github.event.pull_request.number }}:** ${{ github.event.pull_request.title }}
+            **Author:** ${{ github.event.pull_request.user.login }}
+            **Link:** ${{ github.event.pull_request.html_url }}
