@@ -1,0 +1,93 @@
+name: Deploy to AWS EC2
+on:
+  push:
+    branches: [ "main" ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Debug SSH Key
+      run: |
+        if [ -z "${{ secrets.EC2_SSH_PRIVATE_KEY }}" ]; then
+          echo "❌ ERROR: La clave SSH está vacía."
+          exit 1
+        else
+          echo "✅ La clave SSH está presente."
+        fi
+    
+    - name: Prepare SSH Key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+    
+    - name: Test EC2 Connectivity
+      run: nc -zv ${{ secrets.EC2_HOST }} 22
+      
+    - name: Test SSH Connection
+      run: |
+        ssh -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "echo 'Conexión SSH exitosa'"
+    
+    - name: Deploy to EC2
+      run: |
+        ssh -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
+          
+          # Instalar Go si no está instalado
+          if ! command -v go &> /dev/null; then
+            echo "⚙️ Instalando Go..."
+            sudo apt update && sudo apt install -y golang
+          fi
+          
+          # Agregar Go al PATH
+          export PATH=$PATH:/usr/local/go/bin
+          
+          # Preparar directorio de la API
+          mkdir -p ~/api
+          rm -rf ~/api/*
+        EOF
+        
+        # Copiar archivos al servidor
+        scp -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            -r ./* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/api/
+        
+        # Compilar y ejecutar la API en EC2
+        ssh -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
+          export PATH=$PATH:/usr/local/go/bin
+          cd ~/api
+          go build -o api
+          sudo mv api /usr/local/bin/mi-api
+          
+          # Crear el servicio si no existe
+          if [ ! -f /etc/systemd/system/mi-api.service ]; then
+            echo "🔧 Creando servicio systemd..."
+            echo "[Unit]
+            Description=Mi API en Go
+            After=network.target
+            
+            [Service]
+            ExecStart=/usr/local/bin/mi-api
+            Restart=always
+            User=ubuntu
+            WorkingDirectory=/home/ubuntu/api
+            Environment=PATH=/usr/local/go/bin:/usr/bin:/bin
+            
+            [Install]
+            WantedBy=multi-user.target" | sudo tee /etc/systemd/system/mi-api.service
+            sudo systemctl daemon-reload
+            sudo systemctl enable mi-api
+          fi
+          
+          # Reiniciar la API
+          sudo systemctl restart mi-api
+        EOF
