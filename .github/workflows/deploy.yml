@@ -59,6 +59,14 @@ jobs:
             -o StrictHostKeyChecking=no \
             -r ./* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/api/
         
+        # Crear archivo .env en el servidor
+        ssh -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
+          echo "${{ secrets.ENV_FILE }}" > ~/api/.env
+          chmod 600 ~/api/.env  # Asegurar permisos adecuados
+        EOF
+
         # Compilar y ejecutar la API en EC2
         ssh -i ~/.ssh/id_rsa \
             -o StrictHostKeyChecking=no \
@@ -81,6 +89,7 @@ jobs:
             User=ubuntu
             WorkingDirectory=/home/ubuntu/api
             Environment=PATH=/usr/local/go/bin:/usr/bin:/bin
+            EnvironmentFile=/home/ubuntu/api/.env
             
             [Install]
             WantedBy=multi-user.target" | sudo tee /etc/systemd/system/mi-api.service
