@@ -65,6 +65,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	http.HandleFunc("/api/wifi", enableCORS(controller.HandleWiFiConfig))
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("API is running"))
 	})

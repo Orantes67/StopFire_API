@@ -165,3 +165,41 @@ func (s *SensorService) GetAllDHT22Readings() ([]*entities.DHT22, error) {
 	}
 	return sensors, nil
 }
+
+func (s *SensorService) ProcessWiFiConfig(ssid string, password string, esp32ID string) error {
+	config := &entities.WiFiConfig{
+		SSID:     ssid,
+		Password: password,
+		ESP32ID:  esp32ID,
+	}
+
+	if err := s.repo.SaveWiFiConfig(config); err != nil {
+		log.Printf("Error saving WiFi config to database: %v", err)
+		return err
+	}
+
+	// Publish to RabbitMQ
+	message, err := json.Marshal(config)
+	if err != nil {
+		log.Printf("Error marshaling WiFi config message: %v", err)
+		return err
+	}
+
+	queueName := os.Getenv("RABBITMQ_QUEUE_WIFI")
+	if err := core.PublishMessage(queueName, message); err != nil {
+		log.Printf("Error publishing WiFi config message: %v", err)
+		return err
+	}
+
+	log.Printf("Successfully processed WiFi config for ESP32 %s", esp32ID)
+	return nil
+}
+
+func (s *SensorService) GetWiFiConfigByESP32ID(esp32ID string) (*entities.WiFiConfig, error) {
+	config, err := s.repo.GetWiFiConfigByESP32ID(esp32ID)
+	if err != nil {
+		log.Printf("Error getting WiFi config for ESP32 %s: %v", esp32ID, err)
+		return nil, err
+	}
+	return config, nil
+}
