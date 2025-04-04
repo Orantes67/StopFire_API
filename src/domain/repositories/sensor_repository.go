@@ -16,4 +16,6 @@ type SensorRepository interface {
 	GetAllMQ2() ([]*entities.MQ2, error)
 	GetAllMQ135() ([]*entities.MQ135, error)
 	GetAllDHT22() ([]*entities.DHT22, error)
+	SaveWiFiConfig(config *entities.WiFiConfig) error
+	GetWiFiConfigByESP32ID(esp32ID string) (*entities.WiFiConfig, error)
 }

@@ -25,6 +25,12 @@ type SensorDataRequest struct {
 	Estado             int    `json:"estado"`
 }
 
+type WiFiConfigRequest struct {
+	SSID     string `json:"ssid"`
+	Password string `json:"password"`
+	ESP32ID  string `json:"esp32_id"`
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
@@ -243,6 +249,58 @@ func (c *SensorController) HandleDHT22(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := c.service.ProcessDHT22Reading(req.Estado); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "method not allowed"})
+	}
+}
+
+func (c *SensorController) HandleWiFiConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	switch r.Method {
+	case http.MethodGet:
+		// Obtener la configuración WiFi para un ESP32 específico
+		esp32ID := r.URL.Query().Get("esp32_id")
+		if esp32ID == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "esp32_id parameter is required"})
+			return
+		}
+
+		config, err := c.service.GetWiFiConfigByESP32ID(esp32ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: err.Error()})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(config)
+
+	case http.MethodPost:
+		// Enviar nueva configuración WiFi
+		var req WiFiConfigRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "invalid request body"})
+			return
+		}
+
+		if req.SSID == "" || req.Password == "" || req.ESP32ID == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "ssid, password, and esp32_id are required"})
+			return
+		}
+
+		if err := c.service.ProcessWiFiConfig(req.SSID, req.Password, req.ESP32ID); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: err.Error()})
 			return

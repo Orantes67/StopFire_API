@@ -39,3 +39,10 @@ type ESP32 struct {
 	MQ135   MQ135 `json:"mq135"`
 	DHT22   DHT22 `json:"dht22"`
 }
+
+type WiFiConfig struct {
+	ID       int    `json:"id"`
+	SSID     string `json:"ssid"`
+	Password string `json:"password"`
+	ESP32ID  string `json:"esp32_id"` // Serie del dispositivo
+}

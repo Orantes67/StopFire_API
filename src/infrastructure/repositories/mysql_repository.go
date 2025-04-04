@@ -211,3 +211,30 @@ func (r *MySQLRepository) GetAllDHT22() ([]*entities.DHT22, error) {
 	}
 	return sensors, nil
 }
+
+func (r *MySQLRepository) SaveWiFiConfig(config *entities.WiFiConfig) error {
+	query := "INSERT INTO WiFiConfig (ssid, password, esp32_id) VALUES (?, ?, ?)"
+	result, err := r.db.Exec(query, config.SSID, config.Password, config.ESP32ID)
+	if err != nil {
+		return err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	config.ID = int(id)
+	return nil
+}
+
+func (r *MySQLRepository) GetWiFiConfigByESP32ID(esp32ID string) (*entities.WiFiConfig, error) {
+	config := &entities.WiFiConfig{}
+	query := "SELECT id, ssid, password, esp32_id FROM WiFiConfig WHERE esp32_id = ? ORDER BY id DESC LIMIT 1"
+	err := r.db.QueryRow(query, esp32ID).Scan(&config.ID, &config.SSID, &config.Password, &config.ESP32ID)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("wifi config not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
+}

@@ -152,6 +152,36 @@ func InitRabbitMQ() {
 	}
 
 	log.Printf("Successfully connected to RabbitMQ and set up queues: %s, %s, %s, %s", queueKY026, queueMQ2, queueMQ135, queueDHT22)
+
+	// Declare WiFiConfig queue
+	queueWiFi := os.Getenv("RABBITMQ_QUEUE_WIFI")
+	_, err = RabbitMQChannel.QueueDeclare(
+		queueWiFi,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Fatal("Failed to declare WiFi queue:", err)
+	}
+
+	// Bind WiFi queue to exchange
+	err = RabbitMQChannel.QueueBind(
+		queueWiFi,
+		queueWiFi, // Use queue name as routing key
+		exchangeName,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Fatal("Failed to bind WiFi queue:", err)
+	}
+
+	log.Printf("Successfully connected to RabbitMQ and set up queues: %s, %s, %s, %s, %s",
+		queueKY026, queueMQ2, queueMQ135, queueDHT22, queueWiFi)
+
 }
 
 func PublishMessage(queue string, message []byte) error {
